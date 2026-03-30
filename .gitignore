@@ -25,6 +25,11 @@ android-native/local.properties
 *.jks
 *.keystore
 
+# Expo / React Native local state
+.expo/
+**/.expo/
+.expo-shared/
+
 # IDE / OS
 .idea/
 *.iml
