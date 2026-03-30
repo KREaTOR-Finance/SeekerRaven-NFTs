@@ -1,0 +1,52 @@
+publisher:
+  name: SeekerRavens
+  website: https://yourdomain.com
+  email: support@yourdomain.com
+  support_email: support@yourdomain.com
+app:
+  name: SeekerRavens Mint
+  address: ''
+  android_package: com.seekerravens.mint
+  urls:
+    license_url: https://yourdomain.com/terms
+    copyright_url: https://yourdomain.com/terms
+    privacy_policy_url: https://yourdomain.com/privacy
+    website: https://yourdomain.com/seekerravens
+  media:
+    - purpose: icon
+      uri: ./media/app_icon.png
+release:
+  address: ''
+  media:
+    - purpose: icon
+      uri: ./media/release_icon.png
+    - purpose: banner
+      uri: ./media/banner.png
+    - purpose: featureGraphic
+      uri: ./media/feature_graphic.png
+    - purpose: screenshot
+      uri: ./media/screenshot_1.png
+    - purpose: screenshot
+      uri: ./media/screenshot_2.png
+    - purpose: screenshot
+      uri: ./media/screenshot_3.png
+  files:
+    - purpose: install
+      uri: ../app/build/outputs/apk/release/app-release.apk
+  catalog:
+    en-US:
+      name: SeekerRavens Mint
+      short_description: Native Solana Mobile mint and holder dashboard for SeekerRavens Genesis.
+      long_description: Native Android dApp Store release for wallet registration, Sign In With Solana, Candy Machine minting in SKR, mint history, holder eligibility, and profile controls.
+      new_in_version: First native Android release for the SeekerRavens Genesis drop.
+      saga_features: Mobile Wallet Adapter connect, secure session restore, native holder dashboard, and trusted-link support.
+  android_details:
+    locales:
+      - en-US
+solana_mobile_dapp_publisher_portal:
+  google_store_package: ''
+  testing_instructions: |
+    1. Install a Solana Mobile compatible wallet from the dApp Store.
+    2. Open SeekerRavens Mint and connect a wallet.
+    3. Complete SIWS login, then mint on the configured devnet release.
+    4. Verify holder dashboard, trusted settings links, logout, and delete-account messaging.

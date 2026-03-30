@@ -1,0 +1,53 @@
+{
+  "name": "SeekerRaven #20 - Shadow R",
+  "symbol": "SRVN",
+  "description": "A rain-soaked biomechanical raven embedded with R protocol fragment. Cybernetic augmentations pulse in neon hues against the eternal downpour of the megacity.",
+  "seller_fee_basis_points": 750,
+  "image": "https://arweave.net/[ARWEAVE_TX_ID_FOR_IMAGE_20]",
+  "external_url": "https://yourdomain.com/seekerravens/20",
+  "attributes": [
+    {
+      "trait_type": "Glyph",
+      "value": "R"
+    },
+    {
+      "trait_type": "Eye Color",
+      "value": "Cyan"
+    },
+    {
+      "trait_type": "Dominant Glow",
+      "value": "Cyan"
+    },
+    {
+      "trait_type": "Rarity Tier",
+      "value": "Epic"
+    },
+    {
+      "trait_type": "Special Trait",
+      "value": "Encrypted"
+    },
+    {
+      "trait_type": "Background City Hue",
+      "value": "Monochrome Rain"
+    }
+  ],
+  "collection": {
+    "name": "SeekerRavens",
+    "family": "SeekerRavens Genesis"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "image.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw",
+        "share": 100
+      }
+    ]
+  }
+}

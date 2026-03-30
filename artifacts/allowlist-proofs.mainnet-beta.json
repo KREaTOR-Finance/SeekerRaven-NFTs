@@ -1,0 +1,8 @@
+{
+  "cluster": "mainnet-beta",
+  "walletCount": 1,
+  "merkleRootBase58": "DzPiLMtDiaKw5qBmxdBYLQfRRn61THaL65DQbWTzQqJ2",
+  "proofs": {
+    "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw": []
+  }
+}

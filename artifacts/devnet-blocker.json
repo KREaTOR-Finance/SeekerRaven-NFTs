@@ -1,0 +1,13 @@
+{
+  "date": "2026-03-05",
+  "cluster": "devnet",
+  "issue": "mintv2_borsh_variant_index_1",
+  "status": "resolved_on_redeploy",
+  "resolvedAt": "2026-03-05T22:18:00Z",
+  "details": {
+    "note": "Historical blocker from earlier devnet deployment. New deployment mints successfully.",
+    "smokeMintSignature": "3eKZudq9NfA72gyWnUyypXcLpZd4eUZt884kHCBQ7MLJzp9WDR53Sk1Jrdc48DGMTghwiymrMf3w3ZWSiKWEa6hr",
+    "candyMachine": "2fXDKgHmixUQTQNsfdTuqFCaTxmKjZgKUBBJUN1LatSW",
+    "candyGuard": "FErPMKcLhBZYYBycQ59mS3tNeyCqd91yYQoLJoy2gxJA"
+  }
+}

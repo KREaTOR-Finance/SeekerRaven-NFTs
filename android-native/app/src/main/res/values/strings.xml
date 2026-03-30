@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">SeekerRavens Mint</string>
+    <string name="wallet_install_url">https://wallets.solanamobile.com/</string>
+</resources>

@@ -1,0 +1,34 @@
+{
+  "status": "mainnet-ready",
+  "preparedAt": "2026-03-05T22:20:00Z",
+  "requiredEnv": [
+    "SOLANA_CLUSTER=mainnet-beta",
+    "SOLANA_RPC_URL=<mainnet_rpc>",
+    "DEPLOYER_SECRET_KEY_BASE58=<mainnet_deployer_secret>",
+    "CREATOR_WALLET=<mainnet_creator>",
+    "SKR_MINT=<mainnet_skr_mint>",
+    "PROCEEDS_WALLET=<mainnet_proceeds_wallet>",
+    "PROCEEDS_SKR_ATA=<mainnet_proceeds_ata>",
+    "MINT_PRICE_SKR_BASE_UNITS=<price>",
+    "ALLOWLIST_START_ISO=<utc_iso>",
+    "PUBLIC_START_ISO=<utc_iso>",
+    "NEON_DATABASE_URL=<neon_connection_string>",
+    "CRON_SECRET=<cron_secret>"
+  ],
+  "requiredArtifacts": [
+    "config/drop.mainnet-beta.json",
+    "artifacts/upload-manifest.mainnet-beta.json",
+    "artifacts/allowlist-proofs.mainnet-beta.json"
+  ],
+  "devnetValidation": {
+    "deployArtifact": "artifacts/deploy.devnet.json",
+    "verified": true,
+    "smokeMintSignature": "3eKZudq9NfA72gyWnUyypXcLpZd4eUZt884kHCBQ7MLJzp9WDR53Sk1Jrdc48DGMTghwiymrMf3w3ZWSiKWEa6hr"
+  },
+  "deployCommands": [
+    "npx tsx scripts/drop/validate-config.ts --cluster mainnet-beta",
+    "npx tsx scripts/drop/deploy.ts --cluster mainnet-beta",
+    "npx tsx scripts/drop/verify.ts --cluster mainnet-beta",
+    "npx tsx scripts/app/sync-config.ts --cluster mainnet-beta"
+  ]
+}

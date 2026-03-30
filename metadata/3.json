@@ -1,0 +1,53 @@
+{
+  "name": "SeekerRaven #3 - V Shadow",
+  "symbol": "SRVN",
+  "description": "A rain-soaked biomechanical raven embedded with V protocol fragment. Cybernetic augmentations pulse in neon hues against the eternal downpour of the megacity.",
+  "seller_fee_basis_points": 750,
+  "image": "https://arweave.net/[ARWEAVE_TX_ID_FOR_IMAGE_3]",
+  "external_url": "https://yourdomain.com/seekerravens/3",
+  "attributes": [
+    {
+      "trait_type": "Glyph",
+      "value": "V"
+    },
+    {
+      "trait_type": "Eye Color",
+      "value": "Red"
+    },
+    {
+      "trait_type": "Dominant Glow",
+      "value": "Red"
+    },
+    {
+      "trait_type": "Rarity Tier",
+      "value": "Rare"
+    },
+    {
+      "trait_type": "Special Trait",
+      "value": "Gothic Spikes"
+    },
+    {
+      "trait_type": "Background City Hue",
+      "value": "Orange-Pink City"
+    }
+  ],
+  "collection": {
+    "name": "SeekerRavens",
+    "family": "SeekerRavens Genesis"
+  },
+  "properties": {
+    "files": [
+      {
+        "uri": "image.png",
+        "type": "image/png"
+      }
+    ],
+    "category": "image",
+    "creators": [
+      {
+        "address": "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw",
+        "share": 100
+      }
+    ]
+  }
+}

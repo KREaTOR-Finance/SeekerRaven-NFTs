@@ -1,0 +1,12 @@
+{
+  "cluster": "mainnet-beta",
+  "supply": 34,
+  "symbol": "SRVN",
+  "collectionName": "SeekerRavens",
+  "collectionFamily": "SeekerRavens Genesis",
+  "sellerFeeBasisPoints": 750,
+  "allowlistPerWallet": 1,
+  "publicPerWallet": 3,
+  "botTaxLamports": 10000000,
+  "itemsAvailable": 34
+}

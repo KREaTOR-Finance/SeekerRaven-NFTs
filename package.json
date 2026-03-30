@@ -1,0 +1,50 @@
+{
+  "name": "seekerravens-mint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SeekerRavens Genesis Solana Mobile mint pipeline",
+  "type": "module",
+  "scripts": {
+    "assets:prepare": "npm run metadata:generate && npm run metadata:validate",
+    "metadata:generate": "tsx scripts/metadata/generate.ts",
+    "metadata:validate": "tsx scripts/metadata/validate.ts",
+    "allowlist:build": "tsx scripts/allowlist/build.ts",
+    "storage:upload": "tsx scripts/storage/upload.ts",
+    "drop:deploy": "tsx scripts/drop/deploy.ts",
+    "drop:verify": "tsx scripts/drop/verify.ts",
+    "app:sync-config": "tsx scripts/app/sync-config.ts",
+    "config:validate": "tsx scripts/drop/validate-config.ts",
+    "devnet:prepare": "npm run assets:prepare && npm run allowlist:build && npm run config:validate",
+    "backend:init-db": "tsx scripts/backend/cli/init-db.ts",
+    "backend:price-sync": "tsx scripts/backend/cli/price-sync.ts",
+    "backend:buyer-sync": "tsx scripts/backend/cli/buyer-sync.ts",
+    "backend:holder-sync": "tsx scripts/backend/cli/holder-sync.ts",
+    "typecheck": "tsc --noEmit",
+    "test:backend": "node scripts/test-backend.mjs"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@irys/sdk": "^0.2.11",
+    "@metaplex-foundation/mpl-candy-machine": "^6.1.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.1.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.1.1",
+    "@metaplex-foundation/umi-uploader-irys": "^1.1.1",
+    "@neondatabase/serverless": "^1.0.2",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
+    "bs58": "^6.0.0",
+    "csv-parse": "^4.16.3",
+    "dotenv": "^16.6.1",
+    "mime-types": "^3.0.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/mime-types": "^2.1.4",
+    "@types/node": "^24.10.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "name": "seekerravens-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "typecheck": "tsc --noEmit",
+    "web:clean": "set CI=false&&expo start --web --port 19007 --clear"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~4.0.1",
+    "@metaplex-foundation/mpl-candy-machine": "^6.1.0",
+    "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@metaplex-foundation/umi-web3js-adapters": "^1.5.1",
+    "@solana-mobile/mobile-wallet-adapter-protocol-web3js": "^2.0.0",
+    "@solana/web3.js": "^1.98.4",
+    "expo": "~52.0.28",
+    "expo-asset": "~11.0.5",
+    "expo-status-bar": "~2.0.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-native": "0.76.7",
+    "react-native-reanimated": "~3.16.1",
+    "react-native-web": "~0.19.13"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@types/react": "^18.3.12",
+    "typescript": "^5.9.3"
+  }
+}

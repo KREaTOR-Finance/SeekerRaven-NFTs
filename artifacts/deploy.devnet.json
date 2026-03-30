@@ -1,0 +1,14 @@
+{
+  "cluster": "devnet",
+  "rpcUrl": "https://api.devnet.solana.com",
+  "candyMachine": "2fXDKgHmixUQTQNsfdTuqFCaTxmKjZgKUBBJUN1LatSW",
+  "candyGuard": "FErPMKcLhBZYYBycQ59mS3tNeyCqd91yYQoLJoy2gxJA",
+  "collectionMint": "GbTMJb7KSiLz8VZzHNuwiHL6UkjZn7QVjRcxK4ckeeo9",
+  "collectionUpdateAuthority": "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw",
+  "proceedsWallet": "3RDG3GjGbECBLThKnE2NBJo9wJyZJB3Lgy8rC7QCMUkZ",
+  "proceedsSkrAta": "3NzxUm9yFxKK3vnYqQtwMkW8SeVMZQ7x33zeNXvRDJng",
+  "skrMint": "BZeTDx8Hm9ygBUjRv9rCG4iFHYkAJS1jLXnfw4gbseBy",
+  "mintPriceSkrBaseUnits": "1000000000",
+  "collectionUri": "https://arweave.net/5C2rA9ft4BFYLNj3qrV3yKyiRBDfRCj5hSa875wNkxX3",
+  "deployedAt": "2026-03-05T22:17:22.685Z"
+}

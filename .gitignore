@@ -1,0 +1,33 @@
+# Node / TS
+node_modules/
+**/node_modules/
+dist/
+*.log
+
+# Env (never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Generated / sensitive artifacts
+artifacts/wallets/
+artifacts/tmp-metadata/
+
+# Android / Gradle
+android-native/.gradle/
+android-native/**/build/
+android-native/local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+
+# IDE / OS
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db

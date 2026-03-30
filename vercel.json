@@ -1,0 +1,16 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/price-sync",
+      "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/buyer-sync",
+      "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/cron/holder-sync",
+      "schedule": "*/15 * * * *"
+    }
+  ]
+}

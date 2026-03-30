@@ -1,0 +1,8 @@
+﻿{
+  "cluster": "devnet",
+  "mint": "BZeTDx8Hm9ygBUjRv9rCG4iFHYkAJS1jLXnfw4gbseBy",
+  "treasuryAta": "BKPehP6dFBK2U52ssB4raeZvfiRkK8LUpnoZ92Cu3KdY",
+  "treasuryOwner": "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw",
+  "decimals": 9,
+  "mintPriceSkrBaseUnits": "1000000000"
+}
