@@ -2,6 +2,9 @@
 node_modules/
 **/node_modules/
 dist/
+g/
+mobile/dist-android/
+mobile/dist-android-test/
 *.log
 
 # Env (never commit secrets)
@@ -20,6 +23,8 @@ artifacts/tmp-metadata/
 android-native/.gradle/
 android-native/**/build/
 android-native/local.properties
+android-native/app/local.properties
+mobile/android/
 *.apk
 *.aab
 *.jks

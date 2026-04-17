@@ -7,7 +7,8 @@
     "start": "expo start",
     "android": "expo run:android",
     "typecheck": "tsc --noEmit",
-    "web:clean": "set CI=false&&expo start --web --port 19007 --clear"
+    "web:clean": "set CI=false&&expo start --web --port 19007 --clear",
+    "ios": "expo run:ios"
   },
   "dependencies": {
     "@expo/metro-runtime": "~4.0.1",
@@ -24,7 +25,6 @@
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-native": "0.76.7",
-    "react-native-reanimated": "~3.16.1",
     "react-native-web": "~0.19.13"
   },
   "devDependencies": {

@@ -1,14 +1,14 @@
 {
   "cluster": "devnet",
   "rpcUrl": "https://api.devnet.solana.com",
-  "candyMachine": "2fXDKgHmixUQTQNsfdTuqFCaTxmKjZgKUBBJUN1LatSW",
-  "candyGuard": "FErPMKcLhBZYYBycQ59mS3tNeyCqd91yYQoLJoy2gxJA",
-  "collectionMint": "GbTMJb7KSiLz8VZzHNuwiHL6UkjZn7QVjRcxK4ckeeo9",
+  "candyMachine": "FBu1nZuLashLgHMBNLGqDi7jBiU8pq36Sym8ZEXMqWd7",
+  "candyGuard": "Bd9w6f9f7Ep5Aah9xrAKFp2YZJRmkbU2bJwu7b1wbCiM",
+  "collectionMint": "7fMBAMysQV5KF4rcFePhXeHVa5LbLFdwKZvkvxEswCrt",
   "collectionUpdateAuthority": "3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw",
   "proceedsWallet": "3RDG3GjGbECBLThKnE2NBJo9wJyZJB3Lgy8rC7QCMUkZ",
   "proceedsSkrAta": "3NzxUm9yFxKK3vnYqQtwMkW8SeVMZQ7x33zeNXvRDJng",
   "skrMint": "BZeTDx8Hm9ygBUjRv9rCG4iFHYkAJS1jLXnfw4gbseBy",
   "mintPriceSkrBaseUnits": "1000000000",
-  "collectionUri": "https://arweave.net/5C2rA9ft4BFYLNj3qrV3yKyiRBDfRCj5hSa875wNkxX3",
-  "deployedAt": "2026-03-05T22:17:22.685Z"
+  "collectionUri": "https://arweave.net/AW982gm1dMo8Gs1VYfckLGJBVKnf4y2ZSUreGxJwZtKw",
+  "deployedAt": "2026-04-17T06:54:37.529Z"
 }

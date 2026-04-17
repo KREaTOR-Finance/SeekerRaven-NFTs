@@ -1,19 +1,32 @@
-# SeekerRavens Mint Pipeline
+# SeekerRavens Genesis (Solana Mobile, APK-First)
 
-## Status (Devnet)
+## Status
 
-- Deploy complete.
-- On-chain verification complete.
-- Smoke mint complete.
+- Devnet deploy/verify scripts: implemented.
+- Mobile app (MWA + mint + SKR pay rail): implemented.
+- Android bundling: working (Metro + Metaplex/UMI subpath resolution).
 
 ## Policy
 
 - Mint price: **1 SOL-equivalent in SKR**.
 - Proceeds routing: minter pays SKR directly into the configured **MUKZ proceeds ATA** via Candy Guard `tokenPayment`.
 - No in-app staking transfer logic is implemented.
-- Rewards allocation: **pending V2**.
+- Rewards allocation: **pending V2** (v1 is backendless; any “register wallet for rewards” UI is informational until V2 adds a real rewards system).
 
-## Current Configured Addresses
+## APK-First (No Backend)
+
+This repo is optimized for the Solana Mobile dApp Store distribution path:
+
+- The mint UI ships as a native Android app in `mobile/` (Expo/React Native).
+- Wallet connect uses Solana Mobile Wallet Adapter (MWA).
+- Mint + payment are on-chain (Candy Machine + Candy Guard `tokenPayment`).
+- NFT assets live on Arweave/Irys (URIs referenced from on-chain metadata).
+
+No custom backend is required for v1 minting.
+
+## Current Configured Addresses (Example Only)
+
+These values change by cluster. Treat them as examples and rely on `.env`, `config/drop.*.json`, and `artifacts/deploy.*.json` as source of truth.
 
 - Deployer / creator wallet: `3NuxwGwuwacwyaA7UKJuTpmkvAEhWXUVs7c2Kdexm7Yw`
 - MUKZ proceeds wallet: `3RDG3GjGbECBLThKnE2NBJo9wJyZJB3Lgy8rC7QCMUkZ`
@@ -36,15 +49,7 @@
   - per-wallet mint limits
   - bot tax on public group
 - Mobile app config sync and Solana Mobile wallet connect scaffold.
-- Native Android app scaffold (`android-native/`) with:
-  - Jetpack Compose shell
-  - Solana Mobile Wallet Adapter Kotlin integration
-  - SIWS-backed backend session flow
-  - native mint / holdings / settings screens
-- Backend automation scaffold (Vercel + Neon):
-  - Jupiter-driven guard price sync
-  - primary mint buyer ingestion
-  - holder ownership sync for dashboard eligibility
+- Optional/experimental: backend automation scaffold (Vercel + Neon) for V2 analytics/rewards (not required for minting).
 
 ## Core Commands
 
@@ -58,7 +63,20 @@ npx tsx scripts/drop/verify.ts --cluster devnet
 npx tsx scripts/app/sync-config.ts --cluster devnet
 ```
 
-## Backend Commands
+## Mobile (Android) Commands
+
+```powershell
+cd mobile
+npm run typecheck
+npx expo export --platform android --output-dir dist-android
+npx expo run:android
+```
+
+Release signing steps (Android Studio) are documented in:
+
+- `mobile/RELEASE.md`
+
+## Backend Commands (Optional / V2)
 
 ```powershell
 npm run backend:init-db
@@ -106,5 +124,5 @@ Backend vars:
    - `npm run drop:deploy -- --cluster mainnet-beta`
    - `npm run drop:verify -- --cluster mainnet-beta`
    - `npm run app:sync-config -- --cluster mainnet-beta`
-4. Seed Neon schema (`npm run backend:init-db`) and deploy Vercel cron.
-5. Build the native Android APK from `android-native/` and finish `android-native/dapp-store/config.yaml` before submission.
+4. Build a signed release APK/AAB (Android Studio): see `mobile/RELEASE.md`.
+5. Backend (Neon/Vercel) is optional and not required for minting.
