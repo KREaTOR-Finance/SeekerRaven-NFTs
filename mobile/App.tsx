@@ -1,6 +1,6 @@
 import { StatusBar } from "expo-status-bar";
 import { Buffer } from "buffer";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   Image,
   Pressable,
@@ -12,12 +12,17 @@ import {
 } from "react-native";
 import { transact } from "@solana-mobile/mobile-wallet-adapter-protocol-web3js";
 import { mplCandyMachine, mintV2 } from "@metaplex-foundation/mpl-candy-machine";
-import { mplTokenMetadata } from "@metaplex-foundation/mpl-token-metadata";
+import {
+  findMetadataPda,
+  mplTokenMetadata,
+  safeFetchAllMetadata
+} from "@metaplex-foundation/mpl-token-metadata";
 import {
   createNoopSigner,
   createSignerFromKeypair,
   publicKey,
-  signerIdentity
+  signerIdentity,
+  unwrapOption
 } from "@metaplex-foundation/umi";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
 import { fromWeb3JsKeypair, toWeb3JsInstruction } from "@metaplex-foundation/umi-web3js-adapters";
@@ -30,12 +35,23 @@ type WalletState = {
   authToken: string;
 };
 
+type ProfileViewState = {
+  connected: boolean;
+  address: string;
+  ownedCount: number;
+  isHolder: boolean | null;
+  loading: boolean;
+  error: string;
+};
+
 type RavenSample = {
   id: string;
   name: string;
   accent: string;
   source: number;
 };
+
+type ActiveScreen = "mint" | "profile";
 
 const APP_IDENTITY = {
   name: "SeekerRaven Mint",
@@ -47,6 +63,8 @@ const CLUSTER_RPC: Record<Cluster, string> = {
   testnet: "https://api.testnet.solana.com",
   "mainnet-beta": "https://api.mainnet-beta.solana.com"
 };
+
+const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 const ravenSamples: RavenSample[] = [
   {
@@ -74,6 +92,15 @@ const ravenSamples: RavenSample[] = [
     source: require("./assets/samples/seekerraven-r-ember.png")
   }
 ];
+
+const initialProfileState: ProfileViewState = {
+  connected: false,
+  address: "",
+  ownedCount: 0,
+  isHolder: null,
+  loading: false,
+  error: ""
+};
 
 function shortenAddress(address: string): string {
   if (address.length < 12) {
@@ -104,8 +131,68 @@ function resolveRpcUrl(cluster: Cluster, rpcPrimary?: string, rpcFallback?: stri
   return CLUSTER_RPC[cluster];
 }
 
+function formatHolderStatus(profile: ProfileViewState): string {
+  if (!profile.connected) {
+    return "Connect wallet";
+  }
+  if (profile.loading) {
+    return "Checking";
+  }
+  if (profile.isHolder === true) {
+    return "Holder";
+  }
+  if (profile.isHolder === false) {
+    return "Not a holder";
+  }
+  return "Unknown";
+}
+
+async function countSeekerRavensByOwner(
+  rpcUrl: string,
+  ownerAddress: string,
+  collectionMintAddress: string
+): Promise<number> {
+  const connection = new Connection(rpcUrl, "confirmed");
+  const owner = new PublicKey(ownerAddress);
+
+  const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, {
+    programId: TOKEN_PROGRAM_ID
+  });
+
+  const candidateMints = new Set<string>();
+
+  tokenAccounts.value.forEach((tokenAccount) => {
+    const info = (tokenAccount.account.data as { parsed?: { info?: any } }).parsed?.info;
+    const tokenAmount = info?.tokenAmount;
+    if (!info?.mint || !tokenAmount) {
+      return;
+    }
+
+    if (tokenAmount.amount === "1" && tokenAmount.decimals === 0) {
+      candidateMints.add(info.mint as string);
+    }
+  });
+
+  if (candidateMints.size === 0) {
+    return 0;
+  }
+
+  const umi = createUmi(rpcUrl).use(mplTokenMetadata());
+  const metadataPdas = Array.from(candidateMints).map(
+    (mint) => findMetadataPda(umi, { mint: publicKey(mint) })[0]
+  );
+  const metadataAccounts = await safeFetchAllMetadata(umi, metadataPdas);
+
+  return metadataAccounts.filter((metadata) => {
+    const collection = unwrapOption(metadata.collection);
+    return !!collection && collection.verified && collection.key === collectionMintAddress;
+  }).length;
+}
+
 export default function App() {
+  const [activeScreen, setActiveScreen] = useState<ActiveScreen>("mint");
   const [wallet, setWallet] = useState<WalletState | null>(null);
+  const [profileState, setProfileState] = useState<ProfileViewState>(initialProfileState);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMinting, setIsMinting] = useState(false);
   const [mintSignature, setMintSignature] = useState("");
@@ -115,9 +202,65 @@ export default function App() {
   const cluster = (dropConfig.cluster as Cluster) || "devnet";
   const rpcUrl = resolveRpcUrl(cluster, dropConfig.rpcPrimary, dropConfig.rpcFallback);
 
+  const checkHolderStatus = useCallback(
+    async (address: string) => {
+      setProfileState((prev) => ({
+        ...prev,
+        connected: true,
+        address,
+        loading: true,
+        error: ""
+      }));
+
+      try {
+        const ownedCount = await countSeekerRavensByOwner(rpcUrl, address, dropConfig.collectionMint);
+        setProfileState({
+          connected: true,
+          address,
+          ownedCount,
+          isHolder: ownedCount > 0,
+          loading: false,
+          error: ""
+        });
+      } catch {
+        setProfileState({
+          connected: true,
+          address,
+          ownedCount: 0,
+          isHolder: null,
+          loading: false,
+          error: "Unable to read holder status right now."
+        });
+      }
+    },
+    [rpcUrl]
+  );
+
+  useEffect(() => {
+    if (!wallet) {
+      setProfileState(initialProfileState);
+      return;
+    }
+
+    let isCancelled = false;
+    const load = async () => {
+      await checkHolderStatus(wallet.address);
+      if (isCancelled) {
+        return;
+      }
+    };
+
+    load();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [wallet?.address, checkHolderStatus]);
+
   const connectWallet = async () => {
     setError("");
     setIsConnecting(true);
+
     try {
       const session = await transact(async (walletAdapter) => {
         const auth = await walletAdapter.authorize({
@@ -145,7 +288,7 @@ export default function App() {
 
   const mintSeekerRaven = async () => {
     if (!wallet) {
-      setError("Connect your wallet first.");
+      setError("Connect wallet in Profile first.");
       return;
     }
     if (!dropConfig.collectionUpdateAuthority) {
@@ -269,83 +412,156 @@ export default function App() {
         <View pointerEvents="none" style={styles.glowLeft} />
         <View pointerEvents="none" style={styles.glowRight} />
 
-        <View style={styles.heroCard}>
-          <View style={styles.heroRow}>
-            <View style={styles.logoFrame}>
-              <Image source={require("./assets/logo.png")} style={styles.logo} />
+        {activeScreen === "mint" ? (
+          <>
+            <View style={styles.topNav}>
+              <Text style={styles.topNavBrand}>SeekerRavens Mint</Text>
+              <Pressable style={styles.topNavButton} onPress={() => setActiveScreen("profile")}>
+                <Text style={styles.topNavButtonText}>Profile</Text>
+              </Pressable>
             </View>
-            <View style={styles.heroCopy}>
-              <Text style={styles.kicker}>SEEKERRAVEN GENESIS</Text>
-              <Text style={styles.title}>THIS IS YOUR RAVEN</Text>
-              <Text style={styles.subtitle}>Mint it. Register wallet. Earn while holding.</Text>
-            </View>
-          </View>
-          <View style={styles.heroChipRow}>
-            <View style={styles.priceChip}>
-              <Text style={styles.priceChipText}>MINT: 1 SOL-EQUIVALENT SKR</Text>
-            </View>
-            <View style={styles.rewardsChip}>
-              <Text style={styles.rewardsChipText}>PAY RAIL: SKR</Text>
-            </View>
-          </View>
-        </View>
 
-        <View style={styles.benefitCard}>
-          <Text style={styles.benefitTitle}>1. This Is Your SeekerRaven</Text>
-          <Text style={styles.benefitText}>
-            Minting creates your on-chain SeekerRaven from the Genesis collection.
-          </Text>
-        </View>
-
-        <View style={styles.benefitCardAlt}>
-          <Text style={styles.benefitTitle}>2. Register Wallet, Earn Rewards</Text>
-          <Text style={styles.benefitText}>
-            Connect your wallet and stay eligible for holder rewards just by holding your raven.
-          </Text>
-        </View>
-
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>SeekerRaven Samples</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sampleRow}>
-            {ravenSamples.map((sample) => (
-              <View key={sample.id} style={styles.sampleCard}>
-                <Image source={sample.source} style={styles.sampleImage} />
-                <View style={styles.sampleInfo}>
-                  <Text style={styles.sampleName}>{sample.name}</Text>
-                  <Text style={styles.sampleAccent}>{sample.accent}</Text>
+            <View style={styles.heroCard}>
+              <View style={styles.heroRow}>
+                <View style={styles.logoFrame}>
+                  <Image source={require("./assets/logo.png")} style={styles.logo} />
+                </View>
+                <View style={styles.heroCopy}>
+                  <Text style={styles.kicker}>SEEKERRAVEN GENESIS</Text>
+                  <Text style={styles.title}>THIS IS YOUR RAVEN</Text>
+                  <Text style={styles.subtitle}>Mint it. Connect wallet. Hold it.</Text>
                 </View>
               </View>
-            ))}
-          </ScrollView>
-        </View>
+              <View style={styles.heroChipRow}>
+                <View style={styles.priceChip}>
+                  <Text style={styles.priceChipText}>MINT: 1 SOL-EQUIVALENT SKR</Text>
+                </View>
+                <View style={styles.rewardsChip}>
+                  <Text style={styles.rewardsChipText}>PAY RAIL: SKR</Text>
+                </View>
+              </View>
+            </View>
 
-        <Pressable style={styles.button} onPress={connectWallet} disabled={isConnecting || isMinting}>
-          <Text style={styles.buttonText}>
-            {isConnecting ? "Connecting..." : wallet ? "Wallet Registered" : "Register Wallet For Rewards"}
-          </Text>
-        </Pressable>
+            <View style={styles.benefitCard}>
+              <Text style={styles.benefitTitle}>1. This Is Your SeekerRaven</Text>
+              <Text style={styles.benefitText}>
+                Minting creates your on-chain SeekerRaven from the Genesis collection.
+              </Text>
+            </View>
 
-        <Pressable
-          style={[styles.mintButton, (!wallet || isMinting || isConnecting) && styles.buttonDisabled]}
-          onPress={mintSeekerRaven}
-          disabled={!wallet || isMinting || isConnecting}
-        >
-          <Text style={styles.mintButtonText}>{isMinting ? "Minting..." : "Mint SeekerRaven"}</Text>
-        </Pressable>
+            <View style={styles.benefitCardAlt}>
+              <Text style={styles.benefitTitle}>2. Connect Wallet In Profile</Text>
+              <Text style={styles.benefitText}>
+                Profile tracks if you are connected and if you hold a SeekerRaven.
+              </Text>
+            </View>
 
-        <View style={styles.statusCard}>
-          <Text style={styles.statusTitle}>{wallet ? "Wallet Ready" : "Connect Wallet To Mint"}</Text>
-          <Text style={styles.statusText}>
-            {wallet
-              ? `Wallet: ${shortenAddress(wallet.address)}`
-              : "Use Mobile Wallet Adapter to connect your Solana wallet."}
-          </Text>
-          <Text style={styles.statusSubtext}>Payments route in SKR through Candy Guard token payment.</Text>
-          {mintAddress ? <Text style={styles.successLine}>Minted NFT: {shortenAddress(mintAddress)}</Text> : null}
-          {mintSignature ? (
-            <Text style={styles.successLine}>Tx Signature: {shortenAddress(mintSignature)}</Text>
-          ) : null}
-        </View>
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>SeekerRaven Samples</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sampleRow}>
+                {ravenSamples.map((sample) => (
+                  <View key={sample.id} style={styles.sampleCard}>
+                    <Image source={sample.source} style={styles.sampleImage} />
+                    <View style={styles.sampleInfo}>
+                      <Text style={styles.sampleName}>{sample.name}</Text>
+                      <Text style={styles.sampleAccent}>{sample.accent}</Text>
+                    </View>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+
+            <Pressable
+              style={[styles.mintButton, (!wallet || isMinting || isConnecting) && styles.buttonDisabled]}
+              onPress={mintSeekerRaven}
+              disabled={!wallet || isMinting || isConnecting}
+            >
+              <Text style={styles.mintButtonText}>{isMinting ? "Minting..." : "Mint SeekerRaven"}</Text>
+            </Pressable>
+
+            <View style={styles.statusCard}>
+              <Text style={styles.statusTitle}>{wallet ? "Wallet Connected" : "Wallet Not Connected"}</Text>
+              <Text style={styles.statusText}>
+                {wallet
+                  ? `Wallet: ${shortenAddress(wallet.address)}`
+                  : "Open Profile and connect your wallet to mint."}
+              </Text>
+              {mintAddress ? <Text style={styles.successLine}>Minted NFT: {shortenAddress(mintAddress)}</Text> : null}
+              {mintSignature ? (
+                <Text style={styles.successLine}>Tx Signature: {shortenAddress(mintSignature)}</Text>
+              ) : null}
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.topNav}>
+              <Pressable style={styles.topNavButton} onPress={() => setActiveScreen("mint")}>
+                <Text style={styles.topNavButtonText}>Back</Text>
+              </Pressable>
+              <Text style={styles.topNavBrand}>Profile</Text>
+              <View style={styles.topNavSpacer} />
+            </View>
+
+            <View style={styles.sectionCard}>
+              <Text style={styles.sectionTitle}>Dashboard</Text>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileLabel}>Connected</Text>
+                <Text style={styles.profileValue}>{profileState.connected ? "Yes" : "No"}</Text>
+              </View>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileLabel}>Wallet</Text>
+                <Text style={styles.profileValue}>
+                  {profileState.connected ? shortenAddress(profileState.address) : "Not connected"}
+                </Text>
+              </View>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileLabel}>Owned SeekerRavens</Text>
+                <Text style={styles.profileValue}>{profileState.connected ? String(profileState.ownedCount) : "0"}</Text>
+              </View>
+
+              <Pressable
+                style={[styles.button, (isConnecting || profileState.connected) && styles.buttonDisabled]}
+                onPress={connectWallet}
+                disabled={isConnecting || profileState.connected}
+              >
+                <Text style={styles.buttonText}>
+                  {isConnecting ? "Connecting..." : profileState.connected ? "Wallet Connected" : "Connect Wallet"}
+                </Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.refreshButton, (!profileState.connected || profileState.loading) && styles.buttonDisabled]}
+                onPress={() => {
+                  if (wallet) {
+                    checkHolderStatus(wallet.address);
+                  }
+                }}
+                disabled={!profileState.connected || profileState.loading}
+              >
+                <Text style={styles.refreshButtonText}>{profileState.loading ? "Checking..." : "Refresh Holder Status"}</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.benefitCardAlt}>
+              <Text style={styles.sectionTitle}>Rewards</Text>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileLabel}>Connected</Text>
+                <Text style={styles.profileValue}>{profileState.connected ? "Yes" : "No"}</Text>
+              </View>
+              <View style={styles.profileRow}>
+                <Text style={styles.profileLabel}>Holder status</Text>
+                <Text style={styles.profileValue}>{formatHolderStatus(profileState)}</Text>
+              </View>
+              <Text style={styles.statusSubtext}>Rewards details coming in V2.</Text>
+            </View>
+
+            {profileState.error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorText}>{profileState.error}</Text>
+              </View>
+            ) : null}
+          </>
+        )}
 
         {error ? (
           <View style={styles.errorBox}>
@@ -403,6 +619,34 @@ const styles = StyleSheet.create({
     height: 220,
     borderRadius: 999,
     backgroundColor: "#ff33d925"
+  },
+  topNav: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between"
+  },
+  topNavBrand: {
+    color: "#e9ffe6",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.8
+  },
+  topNavButton: {
+    borderColor: "#4dff7d",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#0b1a11"
+  },
+  topNavButtonText: {
+    color: "#9affbe",
+    fontWeight: "700",
+    fontSize: 12,
+    letterSpacing: 0.6
+  },
+  topNavSpacer: {
+    width: 64
   },
   heroCard: {
     borderWidth: 2,
@@ -602,6 +846,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#ff33d9",
     paddingVertical: 12,
     paddingHorizontal: 16,
+    marginHorizontal: 14,
+    marginTop: 6,
     shadowColor: "#ff33d9",
     shadowOpacity: 0.8,
     shadowRadius: 16,
@@ -615,6 +861,22 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     textAlign: "center",
     letterSpacing: 1
+  },
+  refreshButton: {
+    borderColor: "#4dff7d",
+    borderRadius: 12,
+    borderWidth: 2,
+    backgroundColor: "#0a2312",
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    marginHorizontal: 14,
+    marginTop: 10
+  },
+  refreshButtonText: {
+    color: "#9affbe",
+    textAlign: "center",
+    fontWeight: "700",
+    letterSpacing: 0.6
   },
   mintButton: {
     borderColor: "#ff33d9",
@@ -673,6 +935,23 @@ const styles = StyleSheet.create({
     color: "#8fffb5",
     fontSize: 12,
     marginTop: 7
+  },
+  profileRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    marginBottom: 8
+  },
+  profileLabel: {
+    color: "#dcffe2",
+    fontSize: 13,
+    fontWeight: "600"
+  },
+  profileValue: {
+    color: "#effff2",
+    fontSize: 13,
+    fontWeight: "700"
   },
   errorBox: {
     backgroundColor: "#22060f",
