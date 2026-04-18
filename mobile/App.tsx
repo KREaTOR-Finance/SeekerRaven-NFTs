@@ -214,8 +214,27 @@ async function countSeekerRavensByOwner(
   const metadataAccounts = await safeFetchAllMetadata(umi, metadataPdas);
 
   return metadataAccounts.filter((metadata) => {
-    const collection = unwrapOption(metadata.collection);
-    return !!collection && collection.verified && collection.key === collectionMintAddress;
+    if (!metadata) {
+      return false;
+    }
+
+    let collection: { verified: boolean; key: unknown } | null = null;
+    try {
+      collection = unwrapOption(metadata.collection) as { verified: boolean; key: unknown } | null;
+    } catch {
+      return false;
+    }
+
+    if (!collection?.verified) {
+      return false;
+    }
+
+    const collectionKey =
+      typeof collection.key === "string"
+        ? collection.key
+        : (collection.key as { toString?: () => string })?.toString?.() || "";
+
+    return collectionKey === collectionMintAddress;
   }).length;
 }
 
