@@ -75,6 +75,7 @@ const CLUSTER_RPC: Record<Cluster, string> = {
 };
 
 const TOKEN_PROGRAM_ID = new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+const TOKEN_2022_PROGRAM_ID = new PublicKey("TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb");
 
 const ravenSamples: RavenSample[] = [
   {
@@ -172,6 +173,9 @@ function normalizeAssetUri(uri: string): string {
   if (cleaned.startsWith("ar://")) {
     return `https://arweave.net/${cleaned.slice(5)}`;
   }
+  if (cleaned.startsWith("ipfs://")) {
+    return `https://ipfs.io/ipfs/${cleaned.slice(7)}`;
+  }
   return cleaned;
 }
 
@@ -184,6 +188,13 @@ async function fetchMetadataPreview(
   }
 
   try {
+    if (/\.(png|jpe?g|webp|gif)$/i.test(normalizedUri)) {
+      return {
+        name: "",
+        imageUri: normalizedUri
+      };
+    }
+
     const response = await fetch(normalizedUri);
     if (!response.ok) {
       return null;
@@ -200,6 +211,43 @@ async function fetchMetadataPreview(
   } catch {
     return null;
   }
+}
+
+function isSeekerRavenMetadataMatch(
+  metadata: { collection?: unknown; name?: unknown; symbol?: unknown },
+  collectionMintAddress: string
+): boolean {
+  let collectionKey = "";
+  let collectionVerified = false;
+  try {
+    const collection = unwrapOption(metadata.collection as any) as
+      | { verified: boolean; key: unknown }
+      | null;
+    if (collection?.key) {
+      collectionKey =
+        typeof collection.key === "string"
+          ? collection.key
+          : (collection.key as { toString?: () => string })?.toString?.() || "";
+      collectionVerified = Boolean(collection.verified);
+    }
+  } catch {
+    // no-op
+  }
+
+  if (collectionKey && collectionKey === collectionMintAddress) {
+    return true;
+  }
+
+  const name = cleanMetadataText(metadata.name).toLowerCase();
+  const symbol = cleanMetadataText(metadata.symbol).toLowerCase();
+  const hasSeekerName = name.includes("seekerraven") || name.includes("seeker raven");
+  const hasSeekerSymbol = symbol.includes("srvn") || symbol.includes("seeker");
+
+  if (!collectionVerified && hasSeekerName) {
+    return true;
+  }
+
+  return hasSeekerName && hasSeekerSymbol;
 }
 
 function describeWalletError(error: unknown, action: "connect" | "mint"): string {
@@ -240,22 +288,27 @@ async function readSeekerRavensByOwner(
   const connection = new Connection(rpcUrl, "confirmed");
   const owner = new PublicKey(ownerAddress);
 
-  const tokenAccounts = await connection.getParsedTokenAccountsByOwner(owner, {
-    programId: TOKEN_PROGRAM_ID
-  });
+  const tokenProgramAccountGroups = await Promise.all([
+    connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID }),
+    connection.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_2022_PROGRAM_ID })
+  ]);
 
   const candidateMints = new Set<string>();
 
-  tokenAccounts.value.forEach((tokenAccount) => {
-    const info = (tokenAccount.account.data as { parsed?: { info?: any } }).parsed?.info;
-    const tokenAmount = info?.tokenAmount;
-    if (!info?.mint || !tokenAmount) {
-      return;
-    }
+  tokenProgramAccountGroups.forEach((group) => {
+    group.value.forEach((tokenAccount) => {
+      const info = (tokenAccount.account.data as { parsed?: { info?: any } }).parsed?.info;
+      const tokenAmount = info?.tokenAmount;
+      if (!info?.mint || !tokenAmount) {
+        return;
+      }
 
-    if (tokenAmount.amount === "1" && tokenAmount.decimals === 0) {
-      candidateMints.add(info.mint as string);
-    }
+      const amount = Number(tokenAmount.amount || "0");
+      const decimals = Number(tokenAmount.decimals ?? 0);
+      if (amount > 0 && decimals === 0) {
+        candidateMints.add(info.mint as string);
+      }
+    });
   });
 
   if (candidateMints.size === 0) {
@@ -273,27 +326,10 @@ async function readSeekerRavensByOwner(
 
   const ravensInCollection = metadataAccounts
     .filter((metadata) => {
-    if (!metadata) {
-      return false;
-    }
-
-    let collection: { verified: boolean; key: unknown } | null = null;
-    try {
-      collection = unwrapOption(metadata.collection) as { verified: boolean; key: unknown } | null;
-    } catch {
-      return false;
-    }
-
-    if (!collection?.verified) {
-      return false;
-    }
-
-    const collectionKey =
-      typeof collection.key === "string"
-        ? collection.key
-        : (collection.key as { toString?: () => string })?.toString?.() || "";
-
-      return collectionKey === collectionMintAddress;
+      if (!metadata) {
+        return false;
+      }
+      return isSeekerRavenMetadataMatch(metadata, collectionMintAddress);
     })
     .map((metadata) => {
       const mint = cleanMetadataText(metadata.mint.toString());
@@ -580,6 +616,7 @@ export default function App() {
       setWallet(result.session);
       setMintSignature(result.signature);
       setMintAddress(result.mintAddress);
+      await checkHolderStatus(result.session.address);
     } catch (e) {
       setError(describeWalletError(e, "mint"));
     } finally {
@@ -654,6 +691,38 @@ export default function App() {
                 ))}
               </ScrollView>
             </View>
+
+            {wallet ? (
+              <View style={styles.sectionCard}>
+                <Text style={styles.sectionTitle}>Your SeekerRavens</Text>
+                {profileState.loading ? (
+                  <View style={styles.loadingWrap}>
+                    <ActivityIndicator color="#9affbe" size="small" />
+                    <Text style={styles.statusSubtext}>Refreshing ownership...</Text>
+                  </View>
+                ) : profileState.ravens.length > 0 ? (
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sampleRow}>
+                    {profileState.ravens.map((raven) => (
+                      <View key={`mint-owned-${raven.mint}`} style={styles.sampleCard}>
+                        <Image source={{ uri: raven.imageUri }} style={styles.sampleImage} />
+                        <View style={styles.sampleInfo}>
+                          <Text style={styles.sampleName} numberOfLines={1}>
+                            {raven.name}
+                          </Text>
+                          <Text style={styles.sampleAccent}>{shortenAddress(raven.mint)}</Text>
+                        </View>
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.emptyOwnedWrap}>
+                    <Text style={styles.statusSubtext}>
+                      No SeekerRavens detected in this wallet yet. Mint one, then tap Refresh Holder Status in Profile.
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : null}
 
             <Pressable
               style={[styles.mintButton, (!wallet || isMinting || isConnecting) && styles.buttonDisabled]}
@@ -1033,6 +1102,17 @@ const styles = StyleSheet.create({
   sampleRow: {
     paddingHorizontal: 14,
     gap: 12
+  },
+  loadingWrap: {
+    paddingHorizontal: 14,
+    paddingBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8
+  },
+  emptyOwnedWrap: {
+    paddingHorizontal: 14,
+    paddingBottom: 8
   },
   sampleCard: {
     width: 194,
