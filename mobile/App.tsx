@@ -422,24 +422,31 @@ export default function App() {
         transaction.feePayer = walletPublicKey;
         transaction.recentBlockhash = blockhash.blockhash;
         instructions.forEach((instruction) => transaction.add(instruction));
-        transaction.partialSign(nftMint);
-
-        const signatures = await walletAdapter.signAndSendTransactions({
-          transactions: [transaction],
-          commitment: "confirmed",
-          skipPreflight: false
+        // Ask wallet to sign first, then add the local mint-key signature and submit ourselves.
+        // Mock MWA can reject partially-signed payloads during signAndSend.
+        const signedTransactions = await walletAdapter.signTransactions({
+          transactions: [transaction]
         });
-
-        if (!signatures[0]) {
-          throw new Error("Wallet did not return a mint signature.");
+        const signedTransaction = signedTransactions[0];
+        if (!signedTransaction) {
+          throw new Error("Wallet did not return a signed transaction.");
         }
+        if (!(signedTransaction instanceof Transaction)) {
+          throw new Error("Wallet returned unsupported transaction format.");
+        }
+
+        signedTransaction.partialSign(nftMint);
+        const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
+          skipPreflight: false,
+          preflightCommitment: "confirmed"
+        });
 
         return {
           session: {
             address: walletAddress,
             authToken: auth.auth_token
           },
-          signature: signatures[0],
+          signature,
           mintAddress: nftMint.publicKey.toBase58(),
           blockhash: blockhash.blockhash,
           lastValidBlockHeight: blockhash.lastValidBlockHeight
