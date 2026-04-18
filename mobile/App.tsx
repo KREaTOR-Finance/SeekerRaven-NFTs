@@ -42,6 +42,7 @@ type ProfileViewState = {
   isHolder: boolean | null;
   loading: boolean;
   error: string;
+  lastCheckedAt: string;
 };
 
 type RavenSample = {
@@ -99,7 +100,8 @@ const initialProfileState: ProfileViewState = {
   ownedCount: 0,
   isHolder: null,
   loading: false,
-  error: ""
+  error: "",
+  lastCheckedAt: ""
 };
 
 function shortenAddress(address: string): string {
@@ -269,16 +271,22 @@ export default function App() {
           ownedCount,
           isHolder: ownedCount > 0,
           loading: false,
-          error: ""
+          error: "",
+          lastCheckedAt: new Date().toISOString()
         });
-      } catch {
+      } catch (error) {
+        const detail =
+          error instanceof Error && error.message
+            ? error.message.slice(0, 140)
+            : "Unknown RPC/read error";
         setProfileState({
           connected: true,
           address,
           ownedCount: 0,
           isHolder: null,
           loading: false,
-          error: "Unable to read holder status right now."
+          error: `Unable to read holder status right now. ${detail}`,
+          lastCheckedAt: new Date().toISOString()
         });
       }
     },
@@ -333,6 +341,15 @@ export default function App() {
     } finally {
       setIsConnecting(false);
     }
+  };
+
+  const refreshHolderStatus = () => {
+    if (!wallet) {
+      setError("Connect wallet first.");
+      return;
+    }
+    setError("");
+    checkHolderStatus(wallet.address);
   };
 
   const mintSeekerRaven = async () => {
@@ -580,15 +597,17 @@ export default function App() {
 
               <Pressable
                 style={[styles.refreshButton, (!profileState.connected || profileState.loading) && styles.buttonDisabled]}
-                onPress={() => {
-                  if (wallet) {
-                    checkHolderStatus(wallet.address);
-                  }
-                }}
+                onPress={refreshHolderStatus}
                 disabled={!profileState.connected || profileState.loading}
               >
                 <Text style={styles.refreshButtonText}>{profileState.loading ? "Checking..." : "Refresh Holder Status"}</Text>
               </Pressable>
+
+              {profileState.lastCheckedAt ? (
+                <Text style={styles.statusSubtext}>
+                  Last check: {new Date(profileState.lastCheckedAt).toLocaleTimeString()}
+                </Text>
+              ) : null}
             </View>
 
             <View style={styles.benefitCardAlt}>
