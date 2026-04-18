@@ -2,6 +2,7 @@ import { StatusBar } from "expo-status-bar";
 import { Buffer } from "buffer";
 import { useCallback, useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   SafeAreaView,
@@ -39,10 +40,18 @@ type ProfileViewState = {
   connected: boolean;
   address: string;
   ownedCount: number;
+  ravens: OwnedRavenPreview[];
   isHolder: boolean | null;
   loading: boolean;
   error: string;
+  notice: string;
   lastCheckedAt: string;
+};
+
+type OwnedRavenPreview = {
+  mint: string;
+  name: string;
+  imageUri: string;
 };
 
 type RavenSample = {
@@ -98,9 +107,11 @@ const initialProfileState: ProfileViewState = {
   connected: false,
   address: "",
   ownedCount: 0,
+  ravens: [],
   isHolder: null,
   loading: false,
   error: "",
+  notice: "",
   lastCheckedAt: ""
 };
 
@@ -149,6 +160,48 @@ function formatHolderStatus(profile: ProfileViewState): string {
   return "Unknown";
 }
 
+function cleanMetadataText(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\0/g, "").trim() : "";
+}
+
+function normalizeAssetUri(uri: string): string {
+  const cleaned = cleanMetadataText(uri);
+  if (!cleaned) {
+    return "";
+  }
+  if (cleaned.startsWith("ar://")) {
+    return `https://arweave.net/${cleaned.slice(5)}`;
+  }
+  return cleaned;
+}
+
+async function fetchMetadataPreview(
+  metadataUri: string
+): Promise<{ name: string; imageUri: string } | null> {
+  const normalizedUri = normalizeAssetUri(metadataUri);
+  if (!normalizedUri) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(normalizedUri);
+    if (!response.ok) {
+      return null;
+    }
+
+    const payload = (await response.json()) as { name?: unknown; image?: unknown };
+    const name = cleanMetadataText(payload.name);
+    const imageUri = normalizeAssetUri(String(payload.image || ""));
+    if (!imageUri) {
+      return null;
+    }
+
+    return { name, imageUri };
+  } catch {
+    return null;
+  }
+}
+
 function describeWalletError(error: unknown, action: "connect" | "mint"): string {
   const fallback = action === "connect" ? "Wallet connect failed." : "Mint failed.";
   if (!(error instanceof Error)) {
@@ -179,11 +232,11 @@ function describeWalletError(error: unknown, action: "connect" | "mint"): string
   return error.message || fallback;
 }
 
-async function countSeekerRavensByOwner(
+async function readSeekerRavensByOwner(
   rpcUrl: string,
   ownerAddress: string,
   collectionMintAddress: string
-): Promise<number> {
+): Promise<{ ownedCount: number; ravens: OwnedRavenPreview[] }> {
   const connection = new Connection(rpcUrl, "confirmed");
   const owner = new PublicKey(ownerAddress);
 
@@ -206,7 +259,10 @@ async function countSeekerRavensByOwner(
   });
 
   if (candidateMints.size === 0) {
-    return 0;
+    return {
+      ownedCount: 0,
+      ravens: []
+    };
   }
 
   const umi = createUmi(rpcUrl).use(mplTokenMetadata());
@@ -215,7 +271,8 @@ async function countSeekerRavensByOwner(
   );
   const metadataAccounts = await safeFetchAllMetadata(umi, metadataPdas);
 
-  return metadataAccounts.filter((metadata) => {
+  const ravensInCollection = metadataAccounts
+    .filter((metadata) => {
     if (!metadata) {
       return false;
     }
@@ -236,8 +293,35 @@ async function countSeekerRavensByOwner(
         ? collection.key
         : (collection.key as { toString?: () => string })?.toString?.() || "";
 
-    return collectionKey === collectionMintAddress;
-  }).length;
+      return collectionKey === collectionMintAddress;
+    })
+    .map((metadata) => {
+      const mint = cleanMetadataText(metadata.mint.toString());
+      const name = cleanMetadataText(metadata.name);
+      const uri = cleanMetadataText(metadata.uri);
+
+      return { mint, name, uri };
+    });
+
+  const previews = await Promise.all(
+    ravensInCollection.slice(0, 4).map(async (raven) => {
+      const preview = await fetchMetadataPreview(raven.uri);
+      if (!preview) {
+        return null;
+      }
+
+      return {
+        mint: raven.mint,
+        name: preview.name || raven.name || "SeekerRaven",
+        imageUri: preview.imageUri
+      };
+    })
+  );
+
+  return {
+    ownedCount: ravensInCollection.length,
+    ravens: previews.filter((preview): preview is OwnedRavenPreview => Boolean(preview))
+  };
 }
 
 export default function App() {
@@ -260,18 +344,25 @@ export default function App() {
         connected: true,
         address,
         loading: true,
-        error: ""
+        error: "",
+        notice: "Checking holder status..."
       }));
 
       try {
-        const ownedCount = await countSeekerRavensByOwner(rpcUrl, address, dropConfig.collectionMint);
+        const ownership = await readSeekerRavensByOwner(rpcUrl, address, dropConfig.collectionMint);
+        const ownedCount = ownership.ownedCount;
         setProfileState({
           connected: true,
           address,
           ownedCount,
+          ravens: ownership.ravens,
           isHolder: ownedCount > 0,
           loading: false,
           error: "",
+          notice:
+            ownedCount > 0
+              ? `Status refreshed. ${ownedCount} SeekerRaven${ownedCount > 1 ? "s" : ""} found.`
+              : "Status refreshed. No SeekerRavens found in this wallet.",
           lastCheckedAt: new Date().toISOString()
         });
       } catch (error) {
@@ -283,9 +374,11 @@ export default function App() {
           connected: true,
           address,
           ownedCount: 0,
+          ravens: [],
           isHolder: null,
           loading: false,
           error: `Unable to read holder status right now. ${detail}`,
+          notice: "",
           lastCheckedAt: new Date().toISOString()
         });
       }
@@ -343,13 +436,13 @@ export default function App() {
     }
   };
 
-  const refreshHolderStatus = () => {
+  const refreshHolderStatus = async () => {
     if (!wallet) {
       setError("Connect wallet first.");
       return;
     }
     setError("");
-    checkHolderStatus(wallet.address);
+    await checkHolderStatus(wallet.address);
   };
 
   const mintSeekerRaven = async () => {
@@ -610,6 +703,34 @@ export default function App() {
                 <Text style={styles.profileValue}>{profileState.connected ? String(profileState.ownedCount) : "0"}</Text>
               </View>
 
+              {profileState.connected && profileState.ownedCount > 0 ? (
+                <View style={styles.ownedSection}>
+                  <Text style={styles.ownedTitle}>Your SeekerRavens</Text>
+                  {profileState.ravens.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.ownedRow}
+                    >
+                      {profileState.ravens.map((raven) => (
+                        <View key={raven.mint} style={styles.ownedCard}>
+                          <Image source={{ uri: raven.imageUri }} style={styles.ownedImage} />
+                          <Text style={styles.ownedName} numberOfLines={1}>
+                            {raven.name}
+                          </Text>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  ) : (
+                    <View style={styles.ownedFallback}>
+                      <Text style={styles.statusSubtext}>
+                        Holder found. Metadata image preview not available for this wallet yet.
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              ) : null}
+
               <Pressable
                 style={[styles.button, (isConnecting || profileState.connected) && styles.buttonDisabled]}
                 onPress={connectWallet}
@@ -622,10 +743,17 @@ export default function App() {
 
               <Pressable
                 style={[styles.refreshButton, (!profileState.connected || profileState.loading) && styles.buttonDisabled]}
-                onPress={refreshHolderStatus}
+                onPress={() => {
+                  void refreshHolderStatus();
+                }}
                 disabled={!profileState.connected || profileState.loading}
               >
-                <Text style={styles.refreshButtonText}>{profileState.loading ? "Checking..." : "Refresh Holder Status"}</Text>
+                <View style={styles.refreshButtonInner}>
+                  {profileState.loading ? <ActivityIndicator color="#9affbe" size="small" /> : null}
+                  <Text style={styles.refreshButtonText}>
+                    {profileState.loading ? "Checking..." : "Refresh Holder Status"}
+                  </Text>
+                </View>
               </Pressable>
 
               {profileState.lastCheckedAt ? (
@@ -633,6 +761,7 @@ export default function App() {
                   Last check: {new Date(profileState.lastCheckedAt).toLocaleTimeString()}
                 </Text>
               ) : null}
+              {profileState.notice ? <Text style={styles.statusSubtext}>{profileState.notice}</Text> : null}
             </View>
 
             <View style={styles.benefitCardAlt}>
@@ -965,11 +1094,58 @@ const styles = StyleSheet.create({
     marginHorizontal: 14,
     marginTop: 10
   },
+  refreshButtonInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8
+  },
   refreshButtonText: {
     color: "#9affbe",
     textAlign: "center",
     fontWeight: "700",
     letterSpacing: 0.6
+  },
+  ownedSection: {
+    marginHorizontal: 14,
+    marginTop: 6,
+    marginBottom: 2
+  },
+  ownedTitle: {
+    color: "#dcffe2",
+    fontSize: 13,
+    fontWeight: "700",
+    marginBottom: 8
+  },
+  ownedRow: {
+    gap: 10
+  },
+  ownedCard: {
+    width: 120,
+    borderWidth: 2,
+    borderColor: "#4dff7d8a",
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#09090c"
+  },
+  ownedImage: {
+    width: "100%",
+    height: 112,
+    backgroundColor: "#101010"
+  },
+  ownedName: {
+    color: "#effff2",
+    fontSize: 11,
+    fontWeight: "700",
+    paddingHorizontal: 8,
+    paddingVertical: 8
+  },
+  ownedFallback: {
+    borderColor: "#4dff7d55",
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8
   },
   mintButton: {
     borderColor: "#ff33d9",
