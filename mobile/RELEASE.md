@@ -22,7 +22,7 @@ Then from `mobile/`:
 
 ```powershell
 npm run typecheck
-npx expo run:android
+npm run android
 ```
 
 On a Solana Mobile device (or emulator with a compatible wallet flow), connect wallet and run a mint.
@@ -32,10 +32,16 @@ On a Solana Mobile device (or emulator with a compatible wallet flow), connect w
 From `mobile/`:
 
 ```powershell
-npx expo prebuild --platform android
+set EXPO_USE_COMMUNITY_AUTOLINKING=1&&npx expo prebuild --platform android --clean
 ```
 
 This generates `mobile/android/` for Android Studio.
+
+If you build directly from Android Studio/Gradle, set this once in Windows so Solana MWA stays linked:
+
+```powershell
+setx EXPO_USE_COMMUNITY_AUTOLINKING 1
+```
 
 ## 3) Configure release signing
 
@@ -98,4 +104,3 @@ npm run app:sync-config -- --cluster mainnet-beta
 ```
 
 4. Rebuild the Android release.
-
