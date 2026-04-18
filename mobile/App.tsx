@@ -435,7 +435,25 @@ export default function App() {
           throw new Error("Wallet returned unsupported transaction format.");
         }
 
+        const walletSignature = signedTransaction.signatures.find((pair) =>
+          pair.publicKey.equals(walletPublicKey)
+        )?.signature;
+        if (!walletSignature) {
+          throw new Error("Wallet did not provide a fee-payer signature.");
+        }
+
+        // Preserve wallet signature across compile calls, then add mint signer.
+        const compiledMessage = signedTransaction.compileMessage();
+        const requiredSignerKeys = compiledMessage.accountKeys.slice(
+          0,
+          compiledMessage.header.numRequiredSignatures
+        );
+        signedTransaction.signatures = requiredSignerKeys.map((publicKey) => ({
+          publicKey,
+          signature: publicKey.equals(walletPublicKey) ? Buffer.from(walletSignature) : null
+        }));
         signedTransaction.partialSign(nftMint);
+
         const signature = await connection.sendRawTransaction(signedTransaction.serialize(), {
           skipPreflight: false,
           preflightCommitment: "confirmed"
