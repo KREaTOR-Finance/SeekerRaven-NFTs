@@ -147,6 +147,36 @@ function formatHolderStatus(profile: ProfileViewState): string {
   return "Unknown";
 }
 
+function describeWalletError(error: unknown, action: "connect" | "mint"): string {
+  const fallback = action === "connect" ? "Wallet connect failed." : "Mint failed.";
+  if (!(error instanceof Error)) {
+    return fallback;
+  }
+
+  const message = `${error.name}: ${error.message}`;
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("cancellationexception") ||
+    normalized.includes("cancel") ||
+    normalized.includes("declined")
+  ) {
+    return action === "connect"
+      ? "Wallet request canceled. Open Mock MWA Wallet and approve to continue."
+      : "Mint request canceled in wallet.";
+  }
+
+  if (normalized.includes("no accounts")) {
+    return "Wallet authorized but returned no account. Add/import an account in wallet and retry.";
+  }
+
+  if (normalized.includes("solanamobilewalletadapter") && normalized.includes("could not be found")) {
+    return "Wallet adapter module is missing in this build. Reinstall the app from R:\\mobile and retry.";
+  }
+
+  return error.message || fallback;
+}
+
 async function countSeekerRavensByOwner(
   rpcUrl: string,
   ownerAddress: string,
@@ -280,7 +310,7 @@ export default function App() {
 
       setWallet(session);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Wallet connect failed.");
+      setError(describeWalletError(e, "connect"));
     } finally {
       setIsConnecting(false);
     }
@@ -397,7 +427,7 @@ export default function App() {
       setMintSignature(result.signature);
       setMintAddress(result.mintAddress);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Mint failed.");
+      setError(describeWalletError(e, "mint"));
     } finally {
       setIsMinting(false);
     }
